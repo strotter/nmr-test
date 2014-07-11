@@ -68,4 +68,3 @@ class TestNMRPredictor < Test::Unit::TestCase
     assert_equal(chain5.side_chains, [[2, [3]], [2, [2, 2, 2, 2, 3]]])
   end
 end
-
