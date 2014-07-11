@@ -1,8 +1,6 @@
 # iupac_name.rb - Contains data structures/parser for IUPAC nomenclature
 
-# $Id$
-
-require 'chain'
+require_relative 'chain'
 
 module NMR
   # =IUPACName
@@ -16,12 +14,12 @@ module NMR
   #   IUPACName.new('methane').signals.each { |signal| puts signal }
   class IUPACName
     attr_reader :signals, :alkyl_groups
-    
+
     def initialize(iupac_name)
       @iname = iupac_name.chomp
       @signals = self.parse
     end
-    
+
     # Parses an alkane name, for example:
     # 2,2-dimethylhexane
     # 2-methylbutane
@@ -29,11 +27,25 @@ module NMR
       tname = @iname
       # Make sure it's an alkane.
       raise ArgumentError, 'Chemical name must be an alkane' unless tname =~ /ane$/
-      
+
       # Truncate "ane"
       tname = tname.slice(0, tname.length-3)
-      
-      # Build parent chain.
+
+      tname = build_parent_chain(tname)
+      tname = get_alkyl_groups(tname)
+
+      # Turn alkyl strings into side chains.
+      generate_side_chains
+
+      calculate_parent_chain_signals
+      calculate_side_chain_signals
+
+      @chain_signals.uniq
+    end
+
+  private
+
+    def build_parent_chain(tname)
       CARBON_PREFIX.each do |name, carbon_count|
         if tname =~ /#{name}$/ then
           @chain = Chain.new(carbon_count)
@@ -41,8 +53,11 @@ module NMR
           break
         end
       end
-      
-      # Grab each of the alkyl groups.
+
+      tname
+    end
+
+    def get_alkyl_groups(tname)
       @alkyl_groups = []
       while true
         has_alkyl = false
@@ -56,27 +71,33 @@ module NMR
         end
         break unless has_alkyl
       end
-      
+
       if tname.length > 0
         raise Exception, 'Invalid or ambiguous alkane name.'
       end
-      
-      # Turn alkyl strings into side chains.
+
+      tname
+    end
+
+    def generate_side_chains
       @alkyl_groups.each do |group|
         if group =~ /([\d,]+)-(di|tri|tetra)?(\w+)yl/
           prefix = $3
           if (CARBON_PREFIX.include?prefix)
-            $1.split(',').each do |branch| 
+            $1.split(',').each do |branch|
               @chain.add_side_chain(branch.to_i, CARBON_PREFIX[prefix])
             end
           end
         end
       end
-        
-      # Calculate signals of parent chain and apply N+1 rule.
-      chain_signals = []
+    end
+
+    # Calculate signals of parent chain and apply N+1 rule.
+    def calculate_parent_chain_signals
+      @chain_signals = []
+
       if (@chain.parent_carbon_count == 1)
-        chain_signals = [1] # Methane only has a lonely singlet.
+        @chain_signals = [1] # Methane only has a lonely singlet.
       else
         (0..@chain.parent_carbon_count-1).each do |index|
           hydrogen_count = 0
@@ -93,11 +114,13 @@ module NMR
               end
             end
           end
-          chain_signals.push hydrogen_count+1 # N+1 rule
+
+          @chain_signals.push hydrogen_count+1 # N+1 rule
         end
       end
-      
-      # Calculate signals of each side chain.
+    end
+
+    def calculate_side_chain_signals
       @chain.side_chains.each do |carbon, chain|
         (0..chain.length-1).each do |index|
           hydrogen_count = 0
@@ -106,17 +129,16 @@ module NMR
             # Also look to right if chain is longer than one.
             hydrogen_count += chain[index+1] if chain.length > 1
           elsif index == chain.length-1 # Back of chain, look to left only.
-            hydrogen_count = chain[index-1] 
+            hydrogen_count = chain[index-1]
           else # Look both ways if in the middle.
             hydrogen_count = chain[index-1] + chain[index+1]
           end
-          chain_signals.push hydrogen_count+1 # N+1 rule
+
+          @chain_signals.push hydrogen_count+1 # N+1 rule
         end
       end
-      
-      chain_signals.uniq
     end
-    
+
     CARBON_PREFIX = {
       'meth' => 1,
       'eth' => 2,
@@ -129,7 +151,7 @@ module NMR
       'non' => 9,
       'dec' => 10
     }
-    
+
     IUPAC_NUMERIC_MULTIPLIER = {
       'mono' => 1,
       'di' => 2,

@@ -1,8 +1,7 @@
 # nmr_main.rb - Uses console input to generate signal output using NMR::Predictor
 
-# $Id$
+require_relative 'nmr_predictor'
 
-require 'nmr_predictor'
 include NMR
 
 # Loop input on the console and generate signals based on alkane names.

@@ -1,8 +1,6 @@
 # nmr_predictor.rb - 1H-NMR Prediction class
 
-# $Id$
-
-require 'iupac_name'
+require_relative 'iupac_name'
 
 module NMR
   # =Predictor
@@ -15,20 +13,20 @@ module NMR
   # the IUPACName class to generate signals.
   class Predictor
     attr_reader :signal_names
-    
+
     def initialize(name)
       @iupac_name = IUPACName.new(name)
       @signal_names = []
       self.predict
     end
-    
+
     # Store signal names.
     def predict
       @iupac_name.signals.each do | signal |
         @signal_names.push SIGNAL_NAMES[signal]
       end
     end
-    
+
     SIGNAL_NAMES = {
       1 => 'singlet',
       2 => 'doublet',
